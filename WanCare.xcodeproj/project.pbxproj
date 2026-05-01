@@ -7,13 +7,13 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		4AF961032FA1B27F00E157B2 /* sample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = sample.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4AF961032FA1B27F00E157B2 /* WanCare.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WanCare.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		4AF961052FA1B27F00E157B2 /* sample */ = {
+		4AF961052FA1B27F00E157B2 /* WanCare */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = sample;
+			path = WanCare;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -32,7 +32,7 @@
 		4AF960FA2FA1B27F00E157B2 = {
 			isa = PBXGroup;
 			children = (
-				4AF961052FA1B27F00E157B2 /* sample */,
+				4AF961052FA1B27F00E157B2 /* WanCare */,
 				4AF961042FA1B27F00E157B2 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -40,7 +40,7 @@
 		4AF961042FA1B27F00E157B2 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				4AF961032FA1B27F00E157B2 /* sample.app */,
+				4AF961032FA1B27F00E157B2 /* WanCare.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -48,9 +48,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		4AF961022FA1B27F00E157B2 /* sample */ = {
+		4AF961022FA1B27F00E157B2 /* WanCare */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 4AF9610E2FA1B28100E157B2 /* Build configuration list for PBXNativeTarget "sample" */;
+			buildConfigurationList = 4AF9610E2FA1B28100E157B2 /* Build configuration list for PBXNativeTarget "WanCare" */;
 			buildPhases = (
 				4AF960FF2FA1B27F00E157B2 /* Sources */,
 				4AF961002FA1B27F00E157B2 /* Frameworks */,
@@ -61,13 +61,13 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				4AF961052FA1B27F00E157B2 /* sample */,
+				4AF961052FA1B27F00E157B2 /* WanCare */,
 			);
-			name = sample;
+			name = WanCare;
 			packageProductDependencies = (
 			);
 			productName = sample;
-			productReference = 4AF961032FA1B27F00E157B2 /* sample.app */;
+			productReference = 4AF961032FA1B27F00E157B2 /* WanCare.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -85,7 +85,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 4AF960FE2FA1B27F00E157B2 /* Build configuration list for PBXProject "sample" */;
+			buildConfigurationList = 4AF960FE2FA1B27F00E157B2 /* Build configuration list for PBXProject "WanCare" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -99,7 +99,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				4AF961022FA1B27F00E157B2 /* sample */,
+				4AF961022FA1B27F00E157B2 /* WanCare */,
 			);
 		};
 /* End PBXProject section */
@@ -253,6 +253,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "わんケア";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -284,6 +286,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "わんケア";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -309,7 +313,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		4AF960FE2FA1B27F00E157B2 /* Build configuration list for PBXProject "sample" */ = {
+		4AF960FE2FA1B27F00E157B2 /* Build configuration list for PBXProject "WanCare" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				4AF9610C2FA1B28100E157B2 /* Debug */,
@@ -318,7 +322,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		4AF9610E2FA1B28100E157B2 /* Build configuration list for PBXNativeTarget "sample" */ = {
+		4AF9610E2FA1B28100E157B2 /* Build configuration list for PBXNativeTarget "WanCare" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				4AF9610F2FA1B28100E157B2 /* Debug */,
