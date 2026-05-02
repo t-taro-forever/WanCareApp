@@ -64,6 +64,7 @@ struct TodayView: View {
                 // MARK: Profile header
                 Section {
                     HStack(spacing: 16) {
+
                         Group {
                             if let data = profile?.photoData, let uiImage = UIImage(data: data) {
                                 Image(uiImage: uiImage)
@@ -96,8 +97,9 @@ struct TodayView: View {
                         }
                         Spacer()
                     }
-                    .padding(.vertical, 8)
+                    .padding(.bottom, 4)
                 }
+                .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
                 .listRowBackground(Color.clear)
                 Section {
                     if let weight = todayWeightRecord {
@@ -218,7 +220,7 @@ struct TodayView: View {
                 }
 
                 if !todayRecords.isEmpty {
-                    Section("今日の記録") {
+                    Section {
                         ForEach(todayRecords) { record in
                             RecordRow(record: record)
                                 .contentShape(Rectangle())
@@ -229,9 +231,17 @@ struct TodayView: View {
                         .onDelete { offsets in
                             offsets.forEach { context.delete(todayRecords[$0]) }
                         }
+                    } header: {
+                        Text("今日の記録")
+                    } footer: {
+                        Text("タップで編集・左スワイプで削除できます")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
+            .listSectionSpacing(.compact)
+            .contentMargins(.top, 0, for: .scrollContent)
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     VStack(spacing: 2) {
@@ -368,7 +378,7 @@ struct MealsView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                Section("記録一覧") {
+                Section {
                     if records.isEmpty {
                         Text("まだ記録がありません").foregroundStyle(.secondary)
                     } else {
@@ -383,6 +393,12 @@ struct MealsView: View {
                             offsets.forEach { context.delete(records[$0]) }
                         }
                     }
+                } header: {
+                    Text("記録一覧")
+                } footer: {
+                    Text("タップで編集・左スワイプで削除できます")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("ごはん")
@@ -578,7 +594,7 @@ struct MedicationsView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                Section("記録一覧") {
+                Section {
                     if records.isEmpty {
                         Text("まだ記録がありません").foregroundStyle(.secondary)
                     } else {
@@ -593,6 +609,12 @@ struct MedicationsView: View {
                             offsets.forEach { context.delete(records[$0]) }
                         }
                     }
+                } header: {
+                    Text("記録一覧")
+                } footer: {
+                    Text("タップで編集・左スワイプで削除できます")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("お薬")
