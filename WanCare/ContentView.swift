@@ -436,14 +436,6 @@ struct WeightView: View {
     @State private var showingRecordForm = false
     @State private var editingRecord: WeightRecord? = nil
 
-    private static let dateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "ja_JP")
-        f.dateStyle = .short
-        f.timeStyle = .short
-        return f
-    }()
-
     var body: some View {
         NavigationStack {
             List {
