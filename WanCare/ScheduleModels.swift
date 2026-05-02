@@ -1,6 +1,6 @@
 //
 //  ScheduleModels.swift
-//  sample
+//  WanCare
 //
 
 import Foundation
