@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 import PhotosUI
+import Charts
 
 // MARK: - Root
 
@@ -20,6 +21,8 @@ struct ContentView: View {
                 .tabItem { Label("ごはん", systemImage: "fork.knife") }
             MedicationsView()
                 .tabItem { Label("お薬", systemImage: "pills") }
+            WeightView()
+                .tabItem { Label("体重", systemImage: "scalemass") }
             CalendarView()
                 .tabItem { Label("カレンダー", systemImage: "calendar") }
         }
@@ -33,12 +36,19 @@ struct TodayView: View {
     @Query(sort: \MealSchedule.sortOrder) private var mealSchedules: [MealSchedule]
     @Query(sort: \MedicationSchedule.sortOrder) private var medSchedules: [MedicationSchedule]
     @Query(sort: \SpecialEvent.scheduledDate) private var specialMedSchedules: [SpecialEvent]
+    @Query(sort: \WeightRecord.recordedAt, order: .reverse) private var weightRecords: [WeightRecord]
     @Query private var profiles: [DogProfile]
     @Environment(\.modelContext) private var context
     @State private var editingRecord: CareRecord?
     @State private var showingProfile = false
+    @State private var showingWeightForm = false
 
     private var profile: DogProfile? { profiles.first }
+
+    private var todayWeightRecord: WeightRecord? {
+        let start = Calendar.current.startOfDay(for: .now)
+        return weightRecords.first { Calendar.current.isDateInToday($0.recordedAt) }
+    }
 
     private var todayRecords: [CareRecord] {
         let start = Calendar.current.startOfDay(for: .now)
@@ -90,6 +100,37 @@ struct TodayView: View {
                     .padding(.vertical, 8)
                 }
                 .listRowBackground(Color.clear)
+                Section("今日の体重") {
+                    if let weight = todayWeightRecord {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Image(systemName: "scalemass")
+                                    .foregroundStyle(.green)
+                                Text(String(format: "%.1f kg", weight.weight))
+                                    .font(.headline)
+                                Spacer()
+                                Button {
+                                    showingWeightForm = true
+                                } label: {
+                                    Image(systemName: "pencil")
+                                        .foregroundStyle(.blue)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            if !weight.note.isEmpty {
+                                Text(weight.note)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    } else {
+                        Button {
+                            showingWeightForm = true
+                        } label: {
+                            Label("体重を記録", systemImage: "plus.circle")
+                        }
+                    }
+                }
                 Section("今日のごはん") {
                     if mealSchedules.isEmpty {
                         Text("予定がありません").foregroundStyle(.secondary)
@@ -200,6 +241,14 @@ struct TodayView: View {
             }
             .sheet(isPresented: $showingProfile) {
                 DogProfileFormView()
+            }
+            .sheet(isPresented: $showingWeightForm) {
+                WeightRecordFormView(
+                    initialWeight: todayWeightRecord.map { String(format: "%.1f", $0.weight) },
+                    initialRecordedAt: todayWeightRecord?.recordedAt,
+                    initialNote: todayWeightRecord?.note,
+                    editingRecord: todayWeightRecord
+                )
             }
             .sheet(item: $editingRecord) { record in
                 RecordFormView(
@@ -375,6 +424,91 @@ struct MealsView: View {
             }
         }
         .onAppear { insertDefaultMealSchedulesIfNeeded(context: context, schedules: schedules) }
+    }
+}
+
+// MARK: - Weight
+
+struct WeightView: View {
+    @Query(sort: \WeightRecord.recordedAt, order: .reverse) private var records: [WeightRecord]
+    @Environment(\.modelContext) private var context
+
+    @State private var showingRecordForm = false
+    @State private var editingRecord: WeightRecord? = nil
+
+    private static let dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "ja_JP")
+        f.dateStyle = .short
+        f.timeStyle = .short
+        return f
+    }()
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if !records.isEmpty {
+                    Section("体重の推移") {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Chart {
+                                ForEach(records) { record in
+                                    LineMark(
+                                        x: .value("日付", record.recordedAt),
+                                        y: .value("体重(kg)", record.weight)
+                                    )
+                                    .foregroundStyle(.green)
+                                    PointMark(
+                                        x: .value("日付", record.recordedAt),
+                                        y: .value("体重(kg)", record.weight)
+                                    )
+                                    .foregroundStyle(.green)
+                                }
+                            }
+                            .chartYAxisLabel("体重(kg)", position: .leading)
+                            .chartXAxisLabel("日付", position: .bottom)
+                            .frame(height: 250)
+                            .padding(.vertical, 8)
+                        }
+                    }
+                }
+                
+                Section("記録一覧") {
+                    if records.isEmpty {
+                        Text("まだ記録がありません").foregroundStyle(.secondary)
+                    } else {
+                        ForEach(records) { record in
+                            WeightRecordRow(record: record)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    editingRecord = record
+                                }
+                        }
+                        .onDelete { offsets in
+                            offsets.forEach { context.delete(records[$0]) }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("体重")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button { showingRecordForm = true } label: {
+                        Label("記録する", systemImage: "plus")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingRecordForm) {
+                WeightRecordFormView()
+            }
+            .sheet(item: $editingRecord) { record in
+                WeightRecordFormView(
+                    initialWeight: String(format: "%.1f", record.weight),
+                    initialRecordedAt: record.recordedAt,
+                    initialNote: record.note,
+                    editingRecord: record
+                )
+            }
+        }
     }
 }
 
@@ -890,6 +1024,131 @@ private func insertDefaultMedSchedulesIfNeeded(context: ModelContext, schedules:
     defaults.forEach { context.insert($0) }
 }
 
+// MARK: - WeightRecordFormView
+
+struct WeightRecordFormView: View {
+    let initialWeight: String?
+    let initialRecordedAt: Date?
+    let initialNote: String?
+    let editingRecord: WeightRecord?
+
+    @Environment(\.modelContext) private var context
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var weight: String = ""
+    @State private var recordedAt: Date = .now
+    @State private var note: String = ""
+
+    init(
+        initialWeight: String? = nil,
+        initialRecordedAt: Date? = nil,
+        initialNote: String? = nil,
+        editingRecord: WeightRecord? = nil
+    ) {
+        self.initialWeight = initialWeight
+        self.initialRecordedAt = initialRecordedAt
+        self.initialNote = initialNote
+        self.editingRecord = editingRecord
+    }
+
+    private var isValid: Bool { !weight.isEmpty && Double(weight) != nil }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("体重（kg）") {
+                    TextField("例: 12.5", text: $weight)
+                        .keyboardType(.decimalPad)
+                }
+
+                Section("日時") {
+                    DatePicker("測定日時", selection: $recordedAt, displayedComponents: [.date, .hourAndMinute])
+                        .environment(\.locale, Locale(identifier: "ja_JP"))
+                }
+
+                Section("メモ（任意）") {
+                    TextEditor(text: $note)
+                        .frame(minHeight: 80)
+                }
+            }
+            .navigationTitle(editingRecord == nil ? "体重を記録" : "体重を編集")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("キャンセル") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("保存") {
+                        if let weightDouble = Double(weight) {
+                            if let editingRecord {
+                                editingRecord.weight = weightDouble
+                                editingRecord.recordedAt = recordedAt
+                                editingRecord.note = note
+                            } else {
+                                let record = WeightRecord(
+                                    weight: weightDouble,
+                                    recordedAt: recordedAt,
+                                    note: note
+                                )
+                                context.insert(record)
+                            }
+                            dismiss()
+                        }
+                    }
+                    .disabled(!isValid)
+                }
+            }
+            .onAppear {
+                if let initialWeight { weight = initialWeight }
+                if let initialRecordedAt { recordedAt = initialRecordedAt }
+                if let initialNote { note = initialNote }
+            }
+        }
+    }
+}
+
+// MARK: - WeightRecordRow
+
+struct WeightRecordRow: View {
+    let record: WeightRecord
+
+    private var normalizedNote: String {
+        record.note
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\n", with: " ")
+    }
+
+    private static let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "ja_JP")
+        f.dateStyle = .short
+        f.timeStyle = .short
+        return f
+    }()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Image(systemName: "scalemass")
+                    .foregroundStyle(.green)
+                Text(String(format: "%.1f kg", record.weight)).font(.headline)
+                Spacer()
+            }
+            Text(Self.timeFormatter.string(from: record.recordedAt))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            if !normalizedNote.isEmpty {
+                Text(normalizedNote)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+}
+
 // MARK: - RecordRow
 
 struct RecordRow: View {
@@ -1086,5 +1345,5 @@ struct MedicationPlan: Identifiable {
 
 #Preview {
     ContentView()
-        .modelContainer(for: [CareRecord.self, MealSchedule.self, MedicationSchedule.self, SpecialEvent.self, DogProfile.self], inMemory: true)
+        .modelContainer(for: [CareRecord.self, MealSchedule.self, MedicationSchedule.self, SpecialEvent.self, DogProfile.self, WeightRecord.self], inMemory: true)
 }
