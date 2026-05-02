@@ -1,6 +1,6 @@
 //
 //  ContentView.swift
-//  sample
+//  WanCare
 //
 //  Created by shirai on 2026/04/29.
 //
@@ -46,7 +46,6 @@ struct TodayView: View {
     private var profile: DogProfile? { profiles.first }
 
     private var todayWeightRecord: WeightRecord? {
-        let start = Calendar.current.startOfDay(for: .now)
         return weightRecords.first { Calendar.current.isDateInToday($0.recordedAt) }
     }
 
@@ -100,22 +99,18 @@ struct TodayView: View {
                     .padding(.vertical, 8)
                 }
                 .listRowBackground(Color.clear)
-                Section("今日の体重") {
+                Section {
                     if let weight = todayWeightRecord {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
                                 Image(systemName: "scalemass")
                                     .foregroundStyle(.green)
-                                Text(String(format: "%.1f kg", weight.weight))
+                                Text(String(format: "%.2f kg", weight.weight))
                                     .font(.headline)
                                 Spacer()
-                                Button {
-                                    showingWeightForm = true
-                                } label: {
-                                    Image(systemName: "pencil")
-                                        .foregroundStyle(.blue)
-                                }
-                                .buttonStyle(.plain)
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
                             if !weight.note.isEmpty {
                                 Text(weight.note)
@@ -123,6 +118,8 @@ struct TodayView: View {
                                     .foregroundStyle(.secondary)
                             }
                         }
+                        .contentShape(Rectangle())
+                        .onTapGesture { showingWeightForm = true }
                     } else {
                         Button {
                             showingWeightForm = true
@@ -130,6 +127,12 @@ struct TodayView: View {
                             Label("体重を記録", systemImage: "plus.circle")
                         }
                     }
+                } header: {
+                    Text("今日の体重")
+                } footer: {
+                    Text("タップして体重を入力・編集できます")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
                 Section("今日のごはん") {
                     if mealSchedules.isEmpty {
@@ -229,8 +232,16 @@ struct TodayView: View {
                     }
                 }
             }
-            .navigationTitle("わんちゃん管理")
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    VStack(spacing: 2) {
+                        Text("わんケア")
+                            .font(.headline)
+                        Text("愛犬のごはん・お薬・体重管理")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         showingProfile = true
@@ -244,7 +255,7 @@ struct TodayView: View {
             }
             .sheet(isPresented: $showingWeightForm) {
                 WeightRecordFormView(
-                    initialWeight: todayWeightRecord.map { String(format: "%.1f", $0.weight) },
+                    initialWeight: todayWeightRecord.map { String(format: "%.2f", $0.weight) },
                     initialRecordedAt: todayWeightRecord?.recordedAt,
                     initialNote: todayWeightRecord?.note,
                     editingRecord: todayWeightRecord
@@ -303,7 +314,6 @@ struct MealsView: View {
     @State private var showingRecordForm = false
     @State private var showingScheduleForm = false
     @State private var editingSchedule: MealSchedule? = nil
-    @State private var deletingSchedule: MealSchedule? = nil
     @State private var editingRecord: CareRecord? = nil
 
     var body: some View {
@@ -328,20 +338,22 @@ struct MealsView: View {
                                 Image(systemName: "doc.on.doc").foregroundStyle(.green)
                             }
                             .buttonStyle(.plain)
-                            Button {
-                                editingSchedule = meal
-                            } label: {
-                                Image(systemName: "pencil").foregroundStyle(.blue)
-                            }
-                            .buttonStyle(.plain)
-                            Button {
-                                deletingSchedule = meal
-                            } label: {
-                                Image(systemName: "trash").foregroundStyle(.red)
-                            }
-                            .buttonStyle(.plain)
                         }
                         .padding(.vertical, 2)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            editingSchedule = meal
+                        }
+                    }
+                    .onMove { fromOffsets, toOffset in
+                        var updated = schedules
+                        updated.move(fromOffsets: fromOffsets, toOffset: toOffset)
+                        for (index, schedule) in updated.enumerated() {
+                            schedule.sortOrder = index
+                        }
+                    }
+                    .onDelete { offsets in
+                        offsets.forEach { context.delete(schedules[$0]) }
                     }
                     Button {
                         showingScheduleForm = true
@@ -350,6 +362,10 @@ struct MealsView: View {
                     }
                 } header: {
                     Text("ごはんスケジュール")
+                } footer: {
+                    Text("タップで編集・左スワイプで削除・編集モードでドラッグ並び替え")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 Section("記録一覧") {
@@ -376,6 +392,9 @@ struct MealsView: View {
                         Label("記録する", systemImage: "plus")
                     }
                 }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    EditButton()
+                }
             }
             .sheet(isPresented: $showingRecordForm) {
                 RecordFormView(
@@ -401,26 +420,6 @@ struct MealsView: View {
                     initialNote: record.note,
                     editingRecord: record
                 )
-            }
-            .confirmationDialog(
-                "この予定を削除しますか？",
-                isPresented: Binding(
-                    get: { deletingSchedule != nil },
-                    set: { if !$0 { deletingSchedule = nil } }
-                ),
-                titleVisibility: .visible
-            ) {
-                Button("削除", role: .destructive) {
-                    if let schedule = deletingSchedule {
-                        context.delete(schedule)
-                    }
-                    deletingSchedule = nil
-                }
-                Button("キャンセル", role: .cancel) {
-                    deletingSchedule = nil
-                }
-            } message: {
-                Text("\(deletingSchedule?.name ?? "この予定")を削除します。")
             }
         }
         .onAppear { insertDefaultMealSchedulesIfNeeded(context: context, schedules: schedules) }
@@ -494,7 +493,7 @@ struct WeightView: View {
             }
             .sheet(item: $editingRecord) { record in
                 WeightRecordFormView(
-                    initialWeight: String(format: "%.1f", record.weight),
+                    initialWeight: String(format: "%.2f", record.weight),
                     initialRecordedAt: record.recordedAt,
                     initialNote: record.note,
                     editingRecord: record
@@ -518,7 +517,6 @@ struct MedicationsView: View {
     @State private var showingRecordForm = false
     @State private var showingScheduleForm = false
     @State private var editingSchedule: MedicationSchedule? = nil
-    @State private var deletingSchedule: MedicationSchedule? = nil
     @State private var editingRecord: CareRecord? = nil
 
     private static let dateFormatter: DateFormatter = {
@@ -550,20 +548,22 @@ struct MedicationsView: View {
                                 Image(systemName: "doc.on.doc").foregroundStyle(.green)
                             }
                             .buttonStyle(.plain)
-                            Button {
-                                editingSchedule = medication
-                            } label: {
-                                Image(systemName: "pencil").foregroundStyle(.blue)
-                            }
-                            .buttonStyle(.plain)
-                            Button {
-                                deletingSchedule = medication
-                            } label: {
-                                Image(systemName: "trash").foregroundStyle(.red)
-                            }
-                            .buttonStyle(.plain)
                         }
                         .padding(.vertical, 2)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            editingSchedule = medication
+                        }
+                    }
+                    .onMove { fromOffsets, toOffset in
+                        var updated = schedules
+                        updated.move(fromOffsets: fromOffsets, toOffset: toOffset)
+                        for (index, schedule) in updated.enumerated() {
+                            schedule.sortOrder = index
+                        }
+                    }
+                    .onDelete { offsets in
+                        offsets.forEach { context.delete(schedules[$0]) }
                     }
                     Button {
                         showingScheduleForm = true
@@ -572,6 +572,10 @@ struct MedicationsView: View {
                     }
                 } header: {
                     Text("お薬スケジュール")
+                } footer: {
+                    Text("タップで編集・左スワイプで削除・編集モードでドラッグ並び替え")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 Section("記録一覧") {
@@ -597,6 +601,9 @@ struct MedicationsView: View {
                     Button { showingRecordForm = true } label: {
                         Label("記録する", systemImage: "plus")
                     }
+                }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    EditButton()
                 }
             }
             .sheet(isPresented: $showingRecordForm) {
@@ -624,26 +631,6 @@ struct MedicationsView: View {
                     editingRecord: record
                 )
             }
-            .confirmationDialog(
-                "この予定を削除しますか？",
-                isPresented: Binding(
-                    get: { deletingSchedule != nil },
-                    set: { if !$0 { deletingSchedule = nil } }
-                ),
-                titleVisibility: .visible
-            ) {
-                Button("削除", role: .destructive) {
-                    if let schedule = deletingSchedule {
-                        context.delete(schedule)
-                    }
-                    deletingSchedule = nil
-                }
-                Button("キャンセル", role: .cancel) {
-                    deletingSchedule = nil
-                }
-            } message: {
-                Text("\(deletingSchedule?.name ?? "この予定")を削除します。")
-            }
         }
         .onAppear { insertDefaultMedSchedulesIfNeeded(context: context, schedules: schedules) }
     }
@@ -663,7 +650,7 @@ struct MealScheduleFormView: View {
     @State private var selectedTime: Date = Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: .now) ?? .now
     @State private var amount = ""
 
-    private var isValid: Bool { !name.isEmpty && !amount.isEmpty }
+    private var isValid: Bool { !name.isEmpty }
 
     private static let timeFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -686,7 +673,7 @@ struct MealScheduleFormView: View {
                         .labelsHidden()
                         .environment(\.locale, Locale(identifier: "ja_JP"))
                 }
-                Section("量") {
+                Section("量（任意）") {
                     TextField("例: 80g", text: $amount)
                 }
             }
@@ -742,7 +729,7 @@ struct MedicationScheduleFormView: View {
     @State private var selectedTime: Date = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: .now) ?? .now
     @State private var dose = ""
 
-    private var isValid: Bool { !name.isEmpty && !dose.isEmpty }
+    private var isValid: Bool { !name.isEmpty }
 
     private static let timeFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -765,7 +752,7 @@ struct MedicationScheduleFormView: View {
                         .labelsHidden()
                         .environment(\.locale, Locale(identifier: "ja_JP"))
                 }
-                Section("用量") {
+                Section("用量（任意）") {
                     TextField("例: 1錠", text: $dose)
                 }
             }
@@ -1123,7 +1110,7 @@ struct WeightRecordRow: View {
             HStack {
                 Image(systemName: "scalemass")
                     .foregroundStyle(.green)
-                Text(String(format: "%.1f kg", record.weight)).font(.headline)
+                Text(String(format: "%.2f kg", record.weight)).font(.headline)
                 Spacer()
             }
             Text(Self.timeFormatter.string(from: record.recordedAt))
@@ -1225,7 +1212,7 @@ struct RecordFormView: View {
 
     private var isValid: Bool {
         let title = useCustomTitle ? customTitle : selectedTitle
-        return !title.isEmpty && !amount.isEmpty
+        return !title.isEmpty
     }
 
     var body: some View {
@@ -1244,7 +1231,7 @@ struct RecordFormView: View {
                     }
                 }
 
-                Section("与えた量") {
+                Section("与えた量（任意）") {
                     TextField(type == "meal" ? "例: 80g" : "例: 1錠", text: $amount)
                         .keyboardType(.default)
                 }
@@ -1339,3 +1326,19 @@ struct MedicationPlan: Identifiable {
     ContentView()
         .modelContainer(for: [CareRecord.self, MealSchedule.self, MedicationSchedule.self, SpecialEvent.self, DogProfile.self, WeightRecord.self], inMemory: true)
 }
+
+// 括弧修正用
+
+// 括弧修正用
+
+// 括弧修正用
+
+// 括弧修正用
+
+// 括弧修正用
+
+// 括弧修正用
+
+// 括弧修正用
+
+// 括弧修正用

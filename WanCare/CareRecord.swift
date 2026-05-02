@@ -1,6 +1,6 @@
 //
 //  CareRecord.swift
-//  sample
+//  WanCare
 //
 
 import Foundation

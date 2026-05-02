@@ -1,6 +1,6 @@
 //
-//  sampleApp.swift
-//  sample
+//  WanCareApp.swift
+//  WanCare
 //
 //  Created by shirai on 2026/04/29.
 //
