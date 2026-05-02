@@ -86,11 +86,12 @@
 				};
 			};
 			buildConfigurationList = 4AF960FE2FA1B27F00E157B2 /* Build configuration list for PBXProject "WanCare" */;
-			developmentRegion = en;
+			developmentRegion = ja;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
+				ja,
 			);
 			mainGroup = 4AF960FA2FA1B27F00E157B2;
 			minimizedProjectReferenceProxies = 1;

@@ -69,3 +69,18 @@ class DogProfile {
         self.photoData = photoData
     }
 }
+
+@Model
+class WeightRecord {
+    var id: UUID
+    var weight: Double        // 体重（kg）
+    var recordedAt: Date      // 測定日時
+    var note: String          // メモ
+
+    init(weight: Double, recordedAt: Date = .now, note: String = "") {
+        self.id = UUID()
+        self.weight = weight
+        self.recordedAt = recordedAt
+        self.note = note
+    }
+}
