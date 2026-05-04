@@ -1,6 +1,6 @@
 //
 //  CalendarView.swift
-//  WanCare
+//  sample
 //
 
 import SwiftUI
@@ -42,6 +42,7 @@ struct CalendarView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 0) {
+
                     // Month navigation
                     HStack {
                         Button {
@@ -124,6 +125,16 @@ struct CalendarView: View {
                     }
                 }
             }
+            .gesture(
+                DragGesture(minimumDistance: 40)
+                    .onEnded { value in
+                        if value.translation.width < -40 {
+                            displayMonth = calendar.date(byAdding: .month, value: 1, to: displayMonth) ?? displayMonth
+                        } else if value.translation.width > 40 {
+                            displayMonth = calendar.date(byAdding: .month, value: -1, to: displayMonth) ?? displayMonth
+                        }
+                    }
+            )
             .navigationTitle("カレンダー")
             .sheet(isPresented: $showingDetail) {
                 if let date = selectedDate {
