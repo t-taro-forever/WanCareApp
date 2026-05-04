@@ -42,6 +42,7 @@ struct TodayView: View {
     @State private var editingRecord: CareRecord?
     @State private var showingProfile = false
     @State private var showingWeightForm = false
+    @State private var showingHelp = false
 
     private var profile: DogProfile? { profiles.first }
 
@@ -252,12 +253,24 @@ struct TodayView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItem(placement: .topBarLeading) {
                     Button {
                         showingProfile = true
                     } label: {
                         Image(systemName: "person.circle")
                     }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showingHelp = true
+                    } label: {
+                        Image(systemName: "questionmark.circle")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingHelp) {
+                OnboardingView(isHelp: true) {
+                    showingHelp = false
                 }
             }
             .sheet(isPresented: $showingProfile) {
@@ -353,6 +366,13 @@ struct MealsView: View {
                         .onTapGesture {
                             editingSchedule = meal
                         }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                context.delete(meal)
+                            } label: {
+                                Label("削除", systemImage: "trash")
+                            }
+                        }
                     }
                     .onMove { fromOffsets, toOffset in
                         var updated = schedules
@@ -360,9 +380,6 @@ struct MealsView: View {
                         for (index, schedule) in updated.enumerated() {
                             schedule.sortOrder = index
                         }
-                    }
-                    .onDelete { offsets in
-                        offsets.forEach { context.delete(schedules[$0]) }
                     }
                     Button {
                         showingScheduleForm = true
@@ -372,7 +389,7 @@ struct MealsView: View {
                 } header: {
                     Text("ごはんスケジュール")
                 } footer: {
-                    Text("タップで編集・左スワイプで削除・編集モードでドラッグ並び替え")
+                    Text("タップで編集・左スワイプで削除・ドラッグで並び替え")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -406,9 +423,6 @@ struct MealsView: View {
                     Button { showingRecordForm = true } label: {
                         Label("記録する", systemImage: "plus")
                     }
-                }
-                ToolbarItem(placement: .navigationBarLeading) {
-                    EditButton()
                 }
             }
             .sheet(isPresented: $showingRecordForm) {
@@ -568,6 +582,13 @@ struct MedicationsView: View {
                         .onTapGesture {
                             editingSchedule = medication
                         }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                context.delete(medication)
+                            } label: {
+                                Label("削除", systemImage: "trash")
+                            }
+                        }
                     }
                     .onMove { fromOffsets, toOffset in
                         var updated = schedules
@@ -575,9 +596,6 @@ struct MedicationsView: View {
                         for (index, schedule) in updated.enumerated() {
                             schedule.sortOrder = index
                         }
-                    }
-                    .onDelete { offsets in
-                        offsets.forEach { context.delete(schedules[$0]) }
                     }
                     Button {
                         showingScheduleForm = true
@@ -587,7 +605,7 @@ struct MedicationsView: View {
                 } header: {
                     Text("お薬スケジュール")
                 } footer: {
-                    Text("タップで編集・左スワイプで削除・編集モードでドラッグ並び替え")
+                    Text("タップで編集・左スワイプで削除・ドラッグで並び替え")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -621,9 +639,6 @@ struct MedicationsView: View {
                     Button { showingRecordForm = true } label: {
                         Label("記録する", systemImage: "plus")
                     }
-                }
-                ToolbarItem(placement: .navigationBarLeading) {
-                    EditButton()
                 }
             }
             .sheet(isPresented: $showingRecordForm) {
