@@ -13,14 +13,23 @@ class MealSchedule {
     var content: String = "" // 内容（例: ドッグフード）
     var time: String     // "08:00"
     var amount: String   // "80g"
+    var notificationEnabled: Bool = false
     var sortOrder: Int
 
-    init(name: String, content: String = "", time: String, amount: String, sortOrder: Int = 0) {
+    init(
+        name: String,
+        content: String = "",
+        time: String,
+        amount: String,
+        notificationEnabled: Bool = false,
+        sortOrder: Int = 0
+    ) {
         self.id = UUID()
         self.name = name
         self.content = content
         self.time = time
         self.amount = amount
+        self.notificationEnabled = notificationEnabled
         self.sortOrder = sortOrder
     }
 }
@@ -32,14 +41,23 @@ class MedicationSchedule {
     var content: String = "" // 内容（例: フィラリア予防薬）
     var time: String     // "09:00"
     var dose: String     // "1錠"
+    var notificationEnabled: Bool = false
     var sortOrder: Int
 
-    init(name: String, content: String = "", time: String, dose: String, sortOrder: Int = 0) {
+    init(
+        name: String,
+        content: String = "",
+        time: String,
+        dose: String,
+        notificationEnabled: Bool = false,
+        sortOrder: Int = 0
+    ) {
         self.id = UUID()
         self.name = name
         self.content = content
         self.time = time
         self.dose = dose
+        self.notificationEnabled = notificationEnabled
         self.sortOrder = sortOrder
     }
 }

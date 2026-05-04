@@ -355,9 +355,11 @@ struct DayDetailView: View {
 
     @Query(sort: \CareRecord.recordedAt) private var allRecords: [CareRecord]
     @Query(sort: \SpecialEvent.scheduledDate) private var allSpecialEvents: [SpecialEvent]
+    @Query(sort: \DailyNote.date, order: .reverse) private var allDailyNotes: [DailyNote]
     @Environment(\.modelContext) private var context
     @State private var showingAddSpecialMed = false
     @State private var editingEvent: SpecialEvent? = nil
+    @State private var noteText: String = ""
 
     init(initialDate: Date) {
         self._currentDate = State(initialValue: initialDate)
@@ -370,6 +372,9 @@ struct DayDetailView: View {
     }
     private var specialMeds: [SpecialEvent] {
         allSpecialEvents.filter { calendar.isDate($0.scheduledDate, inSameDayAs: currentDate) }
+    }
+    private var dailyNote: DailyNote? {
+        allDailyNotes.first { calendar.isDate($0.date, inSameDayAs: currentDate) }
     }
 
     private static let dateFormatter: DateFormatter = {
@@ -438,9 +443,29 @@ struct DayDetailView: View {
                 } header: {
                     Text("その他イベント")
                 }
+
+                Section {
+                    TextEditor(text: $noteText)
+                        .frame(minHeight: 80)
+                } header: {
+                    Text("メモ")
+                } footer: {
+                    Text("入力内容は自動的に保存されます")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .onChange(of: noteText) { _, newValue in
+                    saveDayNote(newValue)
+                }
             }
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear { noteText = dailyNote?.note ?? "" }
+            .onChange(of: currentDate) { _, _ in noteText = dailyNote?.note ?? "" }
+            .onChange(of: dailyNote?.note) { _, newValue in
+                let v = newValue ?? ""
+                if v != noteText { noteText = v }
+            }
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button { showingAddSpecialMed = true } label: {
@@ -479,6 +504,15 @@ struct DayDetailView: View {
             .sheet(item: $editingEvent) { event in
                 SpecialEventFormView(editing: event)
             }
+        }
+    }
+
+    private func saveDayNote(_ text: String) {
+        if let existing = dailyNote {
+            existing.note = text
+        } else if !text.isEmpty {
+            let newNote = DailyNote(date: currentDate, note: text)
+            context.insert(newNote)
         }
     }
 }

@@ -40,6 +40,7 @@ struct TodayView: View {
     @Query(sort: \SpecialEvent.scheduledDate) private var specialMedSchedules: [SpecialEvent]
     @Query(sort: \WeightRecord.recordedAt, order: .reverse) private var weightRecords: [WeightRecord]
     @Query private var profiles: [DogProfile]
+    @Query(sort: \DailyNote.date, order: .reverse) private var allDailyNotes: [DailyNote]
     @Environment(\.modelContext) private var context
     @EnvironmentObject private var purchaseManager: PurchaseManager
     @State private var editingRecord: CareRecord?
@@ -48,11 +49,26 @@ struct TodayView: View {
     @State private var showingHelp = false
     @State private var showingPremium = false
     @State private var showingMonthlyReport = false
+    @State private var todayNoteText: String = ""
 
     private var profile: DogProfile? { profiles.first }
 
+    private var todayDailyNote: DailyNote? {
+        allDailyNotes.first { Calendar.current.isDateInToday($0.date) }
+    }
+
     private var todayWeightRecord: WeightRecord? {
         return weightRecords.first { Calendar.current.isDateInToday($0.recordedAt) }
+    }
+
+    private var previousWeightRecord: WeightRecord? {
+        guard let current = todayWeightRecord else { return nil }
+        return weightRecords.first { $0.id != current.id && $0.recordedAt < current.recordedAt }
+    }
+
+    private var todayWeightDelta: Double? {
+        guard let current = todayWeightRecord, let previous = previousWeightRecord else { return nil }
+        return current.weight - previous.weight
     }
 
     private var todayRecords: [CareRecord] {
@@ -62,6 +78,18 @@ struct TodayView: View {
 
     private var todaySpecialEvents: [SpecialEvent] {
         specialMedSchedules.filter { Calendar.current.isDateInToday($0.scheduledDate) }
+    }
+
+    private var reminderSyncID: String {
+        let mealSignature = mealSchedules
+            .map { "\($0.id.uuidString)-\($0.time)-\($0.name)-\($0.notificationEnabled)" }
+            .sorted()
+            .joined(separator: "|")
+        let medicationSignature = medSchedules
+            .map { "\($0.id.uuidString)-\($0.time)-\($0.name)-\($0.notificationEnabled)" }
+            .sorted()
+            .joined(separator: "|")
+        return "\(purchaseManager.isFullUnlocked)-\(mealSignature)-\(medicationSignature)"
     }
 
     var body: some View {
@@ -107,6 +135,26 @@ struct TodayView: View {
                 }
                 .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
                 .listRowBackground(Color.clear)
+
+                if !todaySpecialEvents.isEmpty {
+                    Section("今日のイベント") {
+                        ForEach(todaySpecialEvents) { event in
+                            HStack(spacing: 10) {
+                                Image(systemName: SpecialEventFormView.icon(for: event.title))
+                                    .foregroundStyle(.purple)
+                                    .frame(width: 20)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(event.title).font(.headline)
+                                    if !event.note.isEmpty {
+                                        Text(event.note).font(.caption).foregroundStyle(.secondary)
+                                            .lineLimit(1).truncationMode(.tail)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 Section {
                     if let weight = todayWeightRecord {
                         VStack(alignment: .leading, spacing: 8) {
@@ -119,6 +167,14 @@ struct TodayView: View {
                                 Image(systemName: "chevron.right")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
+                            }
+                            if let delta = todayWeightDelta {
+                                HStack(spacing: 6) {
+                                    Image(systemName: delta > 0 ? "arrow.up" : (delta < 0 ? "arrow.down" : "minus"))
+                                    Text(String(format: "前回比 %@%.2f kg", delta >= 0 ? "+" : "", delta))
+                                }
+                                .font(.caption)
+                                .foregroundStyle(delta > 0 ? .orange : (delta < 0 ? .blue : .secondary))
                             }
                             if !weight.note.isEmpty {
                                 Text(weight.note)
@@ -206,25 +262,6 @@ struct TodayView: View {
                     }
                 }
 
-                if !todaySpecialEvents.isEmpty {
-                    Section("今日のその他イベント") {
-                        ForEach(todaySpecialEvents) { event in
-                            HStack(spacing: 10) {
-                                Image(systemName: SpecialEventFormView.icon(for: event.title))
-                                    .foregroundStyle(.purple)
-                                    .frame(width: 20)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(event.title).font(.headline)
-                                    if !event.note.isEmpty {
-                                        Text(event.note).font(.caption).foregroundStyle(.secondary)
-                                            .lineLimit(1).truncationMode(.tail)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
                 if !todayRecords.isEmpty {
                     Section {
                         ForEach(todayRecords) { record in
@@ -246,6 +283,21 @@ struct TodayView: View {
                     }
                 }
 
+                // MARK: Today Memo
+                Section {
+                    TextEditor(text: $todayNoteText)
+                        .frame(minHeight: 80)
+                } header: {
+                    Text("今日のメモ")
+                } footer: {
+                    Text("入力内容は自動的に保存されます")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .onChange(of: todayNoteText) { _, newValue in
+                    saveTodayNote(newValue)
+                }
+
                 Section {
                     if purchaseManager.isFullUnlocked {
                         Button {
@@ -263,7 +315,7 @@ struct TodayView: View {
                 } header: {
                     Text("有料版")
                 } footer: {
-                    Text(purchaseManager.isFullUnlocked ? "購入済みです。広告は表示されません。月次レポートのPDF出力が使えます。" : "購入すると広告が非表示になり、月次レポートのPDF出力が使えます。")
+                    Text(purchaseManager.isFullUnlocked ? "購入済みです。広告は表示されません。月次レポートのPDF出力とごはん・お薬通知が使えます。" : "購入すると広告が非表示になり、月次レポートのPDF出力とごはん・お薬通知が使えます。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -341,6 +393,20 @@ struct TodayView: View {
                     editingRecord: record
                 )
             }
+            .task(id: reminderSyncID) {
+                await NotificationManager.syncDailyReminders(
+                    mealSchedules: mealSchedules,
+                    medicationSchedules: medSchedules,
+                    isPremiumEnabled: purchaseManager.isFullUnlocked
+                )
+            }
+            .onAppear {
+                todayNoteText = todayDailyNote?.note ?? ""
+            }
+            .onChange(of: todayDailyNote?.note) { _, newValue in
+                let v = newValue ?? ""
+                if v != todayNoteText { todayNoteText = v }
+            }
         }
     }
 
@@ -367,6 +433,15 @@ struct TodayView: View {
             todayQuickChecks.forEach { context.delete($0) }
         }
     }
+
+    private func saveTodayNote(_ text: String) {
+        if let existing = todayDailyNote {
+            existing.note = text
+        } else if !text.isEmpty {
+            let newNote = DailyNote(date: .now, note: text)
+            context.insert(newNote)
+        }
+    }
 }
 
 // MARK: - Meals
@@ -379,6 +454,7 @@ struct MealsView: View {
         order: .reverse
     ) private var records: [CareRecord]
     @Environment(\.modelContext) private var context
+    @EnvironmentObject private var purchaseManager: PurchaseManager
 
     @State private var showingRecordForm = false
     @State private var showingScheduleForm = false
@@ -399,8 +475,17 @@ struct MealsView: View {
                                 Text("時間: \(meal.time)  量: \(meal.amount)").font(.caption).foregroundStyle(.secondary)
                             }
                             Spacer()
+                            Image(systemName: meal.notificationEnabled ? "bell.fill" : "bell.slash")
+                                .foregroundStyle(meal.notificationEnabled ? .yellow : .secondary)
                             Button {
-                                let copy = MealSchedule(name: meal.name, content: meal.content, time: meal.time, amount: meal.amount, sortOrder: schedules.count)
+                                let copy = MealSchedule(
+                                    name: meal.name,
+                                    content: meal.content,
+                                    time: meal.time,
+                                    amount: meal.amount,
+                                    notificationEnabled: meal.notificationEnabled,
+                                    sortOrder: schedules.count
+                                )
                                 context.insert(copy)
                             } label: {
                                 Image(systemName: "doc.on.doc").foregroundStyle(.green)
@@ -435,7 +520,7 @@ struct MealsView: View {
                 } header: {
                     Text("ごはんスケジュール")
                 } footer: {
-                    Text("タップで編集・左スワイプで削除・ドラッグで並び替え")
+                    Text(purchaseManager.isFullUnlocked ? "タップで編集・左スワイプで削除・ドラッグで並び替え（通知設定の変更可）" : "タップで編集・左スワイプで削除・ドラッグで並び替え（通知設定は有料版で利用できます）")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -588,6 +673,7 @@ struct MedicationsView: View {
         order: .reverse
     ) private var records: [CareRecord]
     @Environment(\.modelContext) private var context
+    @EnvironmentObject private var purchaseManager: PurchaseManager
 
     @State private var showingRecordForm = false
     @State private var showingScheduleForm = false
@@ -615,8 +701,17 @@ struct MedicationsView: View {
                                 Text("時間: \(medication.time)  用量: \(medication.dose)").font(.caption).foregroundStyle(.secondary)
                             }
                             Spacer()
+                            Image(systemName: medication.notificationEnabled ? "bell.fill" : "bell.slash")
+                                .foregroundStyle(medication.notificationEnabled ? .yellow : .secondary)
                             Button {
-                                let copy = MedicationSchedule(name: medication.name, content: medication.content, time: medication.time, dose: medication.dose, sortOrder: schedules.count)
+                                let copy = MedicationSchedule(
+                                    name: medication.name,
+                                    content: medication.content,
+                                    time: medication.time,
+                                    dose: medication.dose,
+                                    notificationEnabled: medication.notificationEnabled,
+                                    sortOrder: schedules.count
+                                )
                                 context.insert(copy)
                             } label: {
                                 Image(systemName: "doc.on.doc").foregroundStyle(.green)
@@ -651,7 +746,7 @@ struct MedicationsView: View {
                 } header: {
                     Text("お薬スケジュール")
                 } footer: {
-                    Text("タップで編集・左スワイプで削除・ドラッグで並び替え")
+                    Text(purchaseManager.isFullUnlocked ? "タップで編集・左スワイプで削除・ドラッグで並び替え（通知設定の変更可）" : "タップで編集・左スワイプで削除・ドラッグで並び替え（通知設定は有料版で利用できます）")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -724,12 +819,14 @@ struct MealScheduleFormView: View {
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var purchaseManager: PurchaseManager
     @Query(sort: \MealSchedule.sortOrder) private var all: [MealSchedule]
 
     @State private var name = ""
     @State private var content = ""
     @State private var selectedTime: Date = Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: .now) ?? .now
     @State private var amount = ""
+    @State private var notificationEnabled = false
 
     private var isValid: Bool { !name.isEmpty }
 
@@ -754,6 +851,15 @@ struct MealScheduleFormView: View {
                         .labelsHidden()
                         .environment(\.locale, Locale(identifier: "ja_JP"))
                 }
+                Section("通知") {
+                    Toggle("このスケジュールを通知する", isOn: $notificationEnabled)
+                        .disabled(!purchaseManager.isFullUnlocked)
+                    if !purchaseManager.isFullUnlocked {
+                        Text("通知設定は有料版で利用できます")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 Section("量（任意）") {
                     TextField("例: 80g", text: $amount)
                 }
@@ -768,9 +874,20 @@ struct MealScheduleFormView: View {
                     Button("保存") {
                         let timeStr = Self.timeFormatter.string(from: selectedTime)
                         if let s = editing {
-                            s.name = name; s.content = content; s.time = timeStr; s.amount = amount
+                            s.name = name
+                            s.content = content
+                            s.time = timeStr
+                            s.amount = amount
+                            s.notificationEnabled = notificationEnabled
                         } else {
-                            let s = MealSchedule(name: name, content: content, time: timeStr, amount: amount, sortOrder: all.count)
+                            let s = MealSchedule(
+                                name: name,
+                                content: content,
+                                time: timeStr,
+                                amount: amount,
+                                notificationEnabled: notificationEnabled,
+                                sortOrder: all.count
+                            )
                             context.insert(s)
                         }
                         dismiss()
@@ -783,6 +900,7 @@ struct MealScheduleFormView: View {
                     name = s.name
                     content = s.content
                     amount = s.amount
+                    notificationEnabled = s.notificationEnabled
                     if let date = Self.timeFormatter.date(from: s.time) {
                         selectedTime = Calendar.current.date(
                             bySettingHour: Calendar.current.component(.hour, from: date),
@@ -803,12 +921,14 @@ struct MedicationScheduleFormView: View {
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var purchaseManager: PurchaseManager
     @Query(sort: \MedicationSchedule.sortOrder) private var all: [MedicationSchedule]
 
     @State private var name = ""
     @State private var content = ""
     @State private var selectedTime: Date = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: .now) ?? .now
     @State private var dose = ""
+    @State private var notificationEnabled = false
 
     private var isValid: Bool { !name.isEmpty }
 
@@ -833,6 +953,15 @@ struct MedicationScheduleFormView: View {
                         .labelsHidden()
                         .environment(\.locale, Locale(identifier: "ja_JP"))
                 }
+                Section("通知") {
+                    Toggle("このスケジュールを通知する", isOn: $notificationEnabled)
+                        .disabled(!purchaseManager.isFullUnlocked)
+                    if !purchaseManager.isFullUnlocked {
+                        Text("通知設定は有料版で利用できます")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 Section("用量（任意）") {
                     TextField("例: 1錠", text: $dose)
                 }
@@ -847,9 +976,20 @@ struct MedicationScheduleFormView: View {
                     Button("保存") {
                         let timeStr = Self.timeFormatter.string(from: selectedTime)
                         if let s = editing {
-                            s.name = name; s.content = content; s.time = timeStr; s.dose = dose
+                            s.name = name
+                            s.content = content
+                            s.time = timeStr
+                            s.dose = dose
+                            s.notificationEnabled = notificationEnabled
                         } else {
-                            let s = MedicationSchedule(name: name, content: content, time: timeStr, dose: dose, sortOrder: all.count)
+                            let s = MedicationSchedule(
+                                name: name,
+                                content: content,
+                                time: timeStr,
+                                dose: dose,
+                                notificationEnabled: notificationEnabled,
+                                sortOrder: all.count
+                            )
                             context.insert(s)
                         }
                         dismiss()
@@ -862,6 +1002,7 @@ struct MedicationScheduleFormView: View {
                     name = s.name
                     content = s.content
                     dose = s.dose
+                    notificationEnabled = s.notificationEnabled
                     if let date = Self.timeFormatter.date(from: s.time) {
                         selectedTime = Calendar.current.date(
                             bySettingHour: Calendar.current.component(.hour, from: date),
@@ -1389,6 +1530,7 @@ private struct PremiumPurchaseView: View {
                 Section {
                     Label("広告を非表示", systemImage: "nosign")
                     Label("月次レポートをPDF出力", systemImage: "doc.richtext")
+                    Label("ごはん・お薬の時間通知", systemImage: "bell.badge")
                 } header: {
                     Text("有料版でできること")
                 }
@@ -1482,22 +1624,34 @@ private struct PremiumMonthlyReportView: View {
 
     @Query(sort: \CareRecord.recordedAt, order: .reverse) private var records: [CareRecord]
     @Query(sort: \WeightRecord.recordedAt, order: .reverse) private var weights: [WeightRecord]
+    @Query(sort: \DailyNote.date) private var allDailyNotes: [DailyNote]
     @Environment(\.dismiss) private var dismiss
 
     @State private var generatedPDFURL: URL?
     @State private var showingShareSheet = false
     @State private var generationError: String?
+    @State private var selectedReportMonth: Date = Calendar.current.date(
+        from: Calendar.current.dateComponents([.year, .month], from: .now)
+    ) ?? .now
 
-    private var monthStart: Date {
-        Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: .now)) ?? .now
+    private var reportMonthStart: Date {
+        Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: selectedReportMonth)) ?? .now
+    }
+
+    private var reportMonthEnd: Date {
+        Calendar.current.date(byAdding: .month, value: 1, to: reportMonthStart) ?? .now
     }
 
     private var monthRecords: [CareRecord] {
-        records.filter { $0.recordedAt >= monthStart }
+        records.filter { $0.recordedAt >= reportMonthStart && $0.recordedAt < reportMonthEnd }
     }
 
     private var monthWeights: [WeightRecord] {
-        weights.filter { $0.recordedAt >= monthStart }
+        weights.filter { $0.recordedAt >= reportMonthStart && $0.recordedAt < reportMonthEnd }
+    }
+
+    private var monthDailyNotes: [DailyNote] {
+        allDailyNotes.filter { $0.date >= reportMonthStart && $0.date < reportMonthEnd && !$0.note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     }
 
     private var mealCount: Int { monthRecords.filter { $0.type == "meal" }.count }
@@ -1535,7 +1689,18 @@ private struct PremiumMonthlyReportView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("今月のサマリー") {
+                Section("対象年月") {
+                    DatePicker("年月を選択", selection: $selectedReportMonth, displayedComponents: .date)
+                        .datePickerStyle(.compact)
+                        .environment(\.locale, Locale(identifier: "ja_JP"))
+                        .onChange(of: selectedReportMonth) { _, newValue in
+                            selectedReportMonth = Calendar.current.date(
+                                from: Calendar.current.dateComponents([.year, .month], from: newValue)
+                            ) ?? newValue
+                        }
+                }
+
+                Section("\(Self.monthFormatter.string(from: reportMonthStart))のサマリー") {
                     LabeledContent("ごはん記録") { Text("\(mealCount)回") }
                     LabeledContent("お薬記録") { Text("\(medicationCount)回") }
                     LabeledContent("体重記録") { Text("\(monthWeights.count)回") }
@@ -1567,10 +1732,12 @@ private struct PremiumMonthlyReportView: View {
                 }
 
                 if let generationError {
-                    Section("エラー") {
+                    Section {
                         Text(generationError)
                             .font(.footnote)
                             .foregroundStyle(.red)
+                    } header: {
+                        Text("エラー")
                     }
                 }
             }
@@ -1620,7 +1787,7 @@ private struct PremiumMonthlyReportView: View {
             ])
             y += 40
 
-            let monthText = "対象月: \(Self.monthFormatter.string(from: .now))"
+            let monthText = "対象月: \(Self.monthFormatter.string(from: reportMonthStart))"
             (monthText as NSString).draw(at: CGPoint(x: left, y: y), withAttributes: [
                 .font: bodyFont
             ])
@@ -1717,9 +1884,50 @@ private struct PremiumMonthlyReportView: View {
 
                 y += 10
             }
+
+            // Daily Notes section
+            let noteEntries = monthDailyNotes.sorted { $0.date < $1.date }
+            if !noteEntries.isEmpty {
+                if y > pageRect.height - 80 {
+                    context.beginPage()
+                    y = 40
+                }
+                ("メモ一覧" as NSString).draw(at: CGPoint(x: left, y: y), withAttributes: [
+                    .font: UIFont.systemFont(ofSize: 18, weight: .semibold)
+                ])
+                y += 28
+
+                for noteEntry in noteEntries {
+                    if y > pageRect.height - 80 {
+                        context.beginPage()
+                        y = 40
+                    }
+                    let dayLabel = Self.dayFormatter.string(from: noteEntry.date)
+                    (dayLabel as NSString).draw(at: CGPoint(x: left, y: y), withAttributes: [
+                        .font: UIFont.systemFont(ofSize: 14, weight: .bold)
+                    ])
+                    y += 22
+
+                    let noteAttributes: [NSAttributedString.Key: Any] = [
+                        .font: UIFont.systemFont(ofSize: 12),
+                        .foregroundColor: UIColor.label
+                    ]
+                    let noteMaxWidth = pageRect.width - left - 32
+                    let noteWrapped = wrappedLines(noteEntry.note.trimmingCharacters(in: .whitespacesAndNewlines), maxWidth: noteMaxWidth, attributes: noteAttributes)
+                    for line in noteWrapped {
+                        if y > pageRect.height - 60 {
+                            context.beginPage()
+                            y = 40
+                        }
+                        (line as NSString).draw(at: CGPoint(x: left + 8, y: y), withAttributes: noteAttributes)
+                        y += 18
+                    }
+                    y += 8
+                }
+            }
         }
 
-        let fileName = "WanCare_MonthlyReport_\(Self.fileFormatter.string(from: .now)).pdf"
+        let fileName = "WanCare_MonthlyReport_\(Self.fileFormatter.string(from: reportMonthStart)).pdf"
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
         try data.write(to: url, options: .atomic)
         return url
