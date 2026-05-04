@@ -6,13 +6,30 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		4A6D7ECF2FA82E49000C8873 /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = 4A6D7ECE2FA82E49000C8873 /* GoogleMobileAds */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		4AF961032FA1B27F00E157B2 /* WanCare.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WanCare.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		4A6D7EE12FA8315C000C8873 /* Exceptions for "WanCare" folder in "WanCare" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 4AF961022FA1B27F00E157B2 /* WanCare */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		4AF961052FA1B27F00E157B2 /* WanCare */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				4A6D7EE12FA8315C000C8873 /* Exceptions for "WanCare" folder in "WanCare" target */,
+			);
 			path = WanCare;
 			sourceTree = "<group>";
 		};
@@ -23,6 +40,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4A6D7ECF2FA82E49000C8873 /* GoogleMobileAds in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +83,7 @@
 			);
 			name = WanCare;
 			packageProductDependencies = (
+				4A6D7ECE2FA82E49000C8873 /* GoogleMobileAds */,
 			);
 			productName = sample;
 			productReference = 4AF961032FA1B27F00E157B2 /* WanCare.app */;
@@ -95,6 +114,9 @@
 			);
 			mainGroup = 4AF960FA2FA1B27F00E157B2;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				4A6D7ECD2FA82E49000C8873 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 4AF961042FA1B27F00E157B2 /* Products */;
 			projectDirPath = "";
@@ -254,7 +276,9 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = WanCare/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "わんケア";
+				INFOPLIST_KEY_GADApplicationIdentifier = "ca-app-pub-xxxxxxxxxxxxxxxx~yyyyyyyyyy";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -287,7 +311,9 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = WanCare/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "わんケア";
+				INFOPLIST_KEY_GADApplicationIdentifier = "ca-app-pub-xxxxxxxxxxxxxxxx~yyyyyyyyyy";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -333,6 +359,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		4A6D7ECD2FA82E49000C8873 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/googleads/swift-package-manager-google-mobile-ads";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 13.3.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		4A6D7ECE2FA82E49000C8873 /* GoogleMobileAds */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4A6D7ECD2FA82E49000C8873 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */;
+			productName = GoogleMobileAds;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 4AF960FB2FA1B27F00E157B2 /* Project object */;
 }
