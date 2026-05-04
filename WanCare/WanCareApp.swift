@@ -10,14 +10,17 @@ import SwiftData
 import GoogleMobileAds
 import StoreKit
 import Combine
+import UserNotifications
 
 @main
 struct WanCareApp: App {
     @AppStorage("hasLaunchedBefore") private var hasLaunchedBefore = false
     @State private var showingOnboarding = false
     @StateObject private var purchaseManager = PurchaseManager()
+    private let notificationDelegate = LocalNotificationDelegate()
 
     init() {
+        UNUserNotificationCenter.current().delegate = notificationDelegate
         #if DEBUG
         MobileAds.shared.requestConfiguration.testDeviceIdentifiers = ["SIMULATOR"]
         #endif
@@ -25,7 +28,7 @@ struct WanCareApp: App {
     }
 
     let container: ModelContainer = {
-        let schema = Schema([CareRecord.self, MealSchedule.self, MedicationSchedule.self, SpecialEvent.self, DogProfile.self, WeightRecord.self])
+        let schema = Schema([CareRecord.self, MealSchedule.self, MedicationSchedule.self, SpecialEvent.self, DogProfile.self, WeightRecord.self, DailyNote.self])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
             return try ModelContainer(for: schema, configurations: config)
