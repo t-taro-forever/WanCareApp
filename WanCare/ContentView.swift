@@ -341,9 +341,8 @@ struct MealsView: View {
                             }
                             Spacer()
                             Button {
-                                let copy = MealSchedule(name: meal.name + "のコピー", content: meal.content, time: meal.time, amount: meal.amount, sortOrder: schedules.count)
+                                let copy = MealSchedule(name: meal.name, content: meal.content, time: meal.time, amount: meal.amount, sortOrder: schedules.count)
                                 context.insert(copy)
-                                editingSchedule = copy
                             } label: {
                                 Image(systemName: "doc.on.doc").foregroundStyle(.green)
                             }
@@ -557,9 +556,8 @@ struct MedicationsView: View {
                             }
                             Spacer()
                             Button {
-                                let copy = MedicationSchedule(name: medication.name + "のコピー", content: medication.content, time: medication.time, dose: medication.dose, sortOrder: schedules.count)
+                                let copy = MedicationSchedule(name: medication.name, content: medication.content, time: medication.time, dose: medication.dose, sortOrder: schedules.count)
                                 context.insert(copy)
-                                editingSchedule = copy
                             } label: {
                                 Image(systemName: "doc.on.doc").foregroundStyle(.green)
                             }
