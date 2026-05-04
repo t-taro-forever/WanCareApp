@@ -9,6 +9,8 @@ import SwiftUI
 import SwiftData
 import PhotosUI
 import Charts
+import StoreKit
+import UIKit
 
 // MARK: - Root
 
@@ -39,10 +41,13 @@ struct TodayView: View {
     @Query(sort: \WeightRecord.recordedAt, order: .reverse) private var weightRecords: [WeightRecord]
     @Query private var profiles: [DogProfile]
     @Environment(\.modelContext) private var context
+    @EnvironmentObject private var purchaseManager: PurchaseManager
     @State private var editingRecord: CareRecord?
     @State private var showingProfile = false
     @State private var showingWeightForm = false
     @State private var showingHelp = false
+    @State private var showingPremium = false
+    @State private var showingMonthlyReport = false
 
     private var profile: DogProfile? { profiles.first }
 
@@ -240,9 +245,36 @@ struct TodayView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+
+                Section {
+                    if purchaseManager.isFullUnlocked {
+                        Button {
+                            showingMonthlyReport = true
+                        } label: {
+                            Label("月次レポートをPDF出力", systemImage: "doc.richtext")
+                        }
+                    } else {
+                        Button {
+                            showingPremium = true
+                        } label: {
+                            Label("有料版を購入（広告なし + 追加機能）", systemImage: "lock.open")
+                        }
+                    }
+                } header: {
+                    Text("有料版")
+                } footer: {
+                    Text(purchaseManager.isFullUnlocked ? "購入済みです。広告は表示されません。月次レポートのPDF出力が使えます。" : "購入すると広告が非表示になり、月次レポートのPDF出力が使えます。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
             .listSectionSpacing(.compact)
             .contentMargins(.top, 0, for: .scrollContent)
+            .safeAreaInset(edge: .bottom) {
+                if !purchaseManager.isFullUnlocked {
+                    BannerAdView(adUnitID: AdUnitID.banner)
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     VStack(spacing: 2) {
@@ -267,6 +299,20 @@ struct TodayView: View {
                         Image(systemName: "questionmark.circle")
                     }
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showingPremium = true
+                    } label: {
+                        Image(systemName: purchaseManager.isFullUnlocked ? "checkmark.seal.fill" : "crown")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingPremium) {
+                PremiumPurchaseView()
+                    .environmentObject(purchaseManager)
+            }
+            .sheet(isPresented: $showingMonthlyReport) {
+                PremiumMonthlyReportView()
             }
             .sheet(isPresented: $showingHelp) {
                 OnboardingView(isHelp: true) {
@@ -1331,30 +1377,422 @@ struct RecordFormView: View {
     }
 }
 
-// MARK: - Static models (legacy – kept only for RecordFormView fallback)
+// MARK: - Premium
 
-struct MealPlan: Identifiable {
-    let id = UUID()
-    let name: String
-    let time: String
-    let amount: String
+private struct PremiumPurchaseView: View {
+    @EnvironmentObject private var purchaseManager: PurchaseManager
+    @Environment(\.dismiss) private var dismiss
 
-    static let samples: [MealPlan] = [
-        MealPlan(name: "朝ごはん", time: "08:00", amount: "80g"),
-        MealPlan(name: "夜ごはん", time: "18:30", amount: "90g")
-    ]
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    Label("広告を非表示", systemImage: "nosign")
+                    Label("月次レポートをPDF出力", systemImage: "doc.richtext")
+                } header: {
+                    Text("有料版でできること")
+                }
+
+                Section {
+                    if purchaseManager.isFullUnlocked {
+                        Label("購入済み", systemImage: "checkmark.seal.fill")
+                            .foregroundStyle(.green)
+                    } else {
+                        if let product = purchaseManager.products.first(where: { $0.id == PurchaseManager.ProductID.fullUnlock }) {
+                            Button {
+                                Task { await purchaseManager.purchaseFullUnlock() }
+                            } label: {
+                                HStack {
+                                    Text("有料版を購入")
+                                    Spacer()
+                                    Text(product.displayPrice)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        } else {
+                            ProgressView("商品情報を読み込み中...")
+                        }
+                    }
+
+                    Button("購入を復元") {
+                        Task { await purchaseManager.restorePurchases() }
+                    }
+                    .disabled(purchaseManager.isLoading)
+                }
+
+                #if DEBUG
+                Section {
+                    Button("有料版をON（ローカルテスト）") {
+                        purchaseManager.debugSetUnlocked(true)
+                    }
+                    Button("有料版をOFF（ローカルテスト）") {
+                        purchaseManager.debugSetUnlocked(false)
+                    }
+                } header: {
+                    Text("開発用テスト")
+                } footer: {
+                    Text("DEBUGビルドでのみ表示されます。広告表示切替と追加機能解放の確認に使えます。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                #endif
+
+                if let error = purchaseManager.errorMessage {
+                    Section {
+                        Text(error)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    } header: {
+                        Text("エラー")
+                    }
+                }
+            }
+            .navigationTitle("有料版")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("閉じる") { dismiss() }
+                }
+            }
+        }
+    }
 }
 
-struct MedicationPlan: Identifiable {
-    let id = UUID()
-    let name: String
-    let time: String
-    let dose: String
+private struct PremiumMonthlyReportView: View {
+    private enum ReportEntryKind {
+        case meal
+        case medication
+        case weight
 
-    static let samples: [MedicationPlan] = [
-        MedicationPlan(name: "フィラリア予防薬", time: "09:00", dose: "1錠"),
-        MedicationPlan(name: "皮膚ケアサプリ", time: "20:00", dose: "5mL")
-    ]
+        var color: UIColor {
+            switch self {
+            case .meal: return .systemOrange
+            case .medication: return .systemBlue
+            case .weight: return .systemGreen
+            }
+        }
+    }
+
+    private struct ReportEntry {
+        let recordedAt: Date
+        let kind: ReportEntryKind
+        let text: String
+        let note: String
+    }
+
+    @Query(sort: \CareRecord.recordedAt, order: .reverse) private var records: [CareRecord]
+    @Query(sort: \WeightRecord.recordedAt, order: .reverse) private var weights: [WeightRecord]
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var generatedPDFURL: URL?
+    @State private var showingShareSheet = false
+    @State private var generationError: String?
+
+    private var monthStart: Date {
+        Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: .now)) ?? .now
+    }
+
+    private var monthRecords: [CareRecord] {
+        records.filter { $0.recordedAt >= monthStart }
+    }
+
+    private var monthWeights: [WeightRecord] {
+        weights.filter { $0.recordedAt >= monthStart }
+    }
+
+    private var mealCount: Int { monthRecords.filter { $0.type == "meal" }.count }
+    private var medicationCount: Int { monthRecords.filter { $0.type == "medication" }.count }
+    private var averageWeight: Double? {
+        guard !monthWeights.isEmpty else { return nil }
+        let sum = monthWeights.reduce(0) { $0 + $1.weight }
+        return sum / Double(monthWeights.count)
+    }
+
+    private var detailEntries: [ReportEntry] {
+        let careEntries = monthRecords.map { record in
+            let kind = record.type == "meal" ? "ごはん" : "お薬"
+            let amountText = record.amount.isEmpty ? "" : "（\(record.amount)）"
+            return ReportEntry(
+                recordedAt: record.recordedAt,
+                kind: record.type == "meal" ? .meal : .medication,
+                text: "\(kind): \(record.title)\(amountText)",
+                note: normalizeNote(record.note)
+            )
+        }
+
+        let weightEntries = monthWeights.map { record in
+            ReportEntry(
+                recordedAt: record.recordedAt,
+                kind: .weight,
+                text: String(format: "体重: %.2f kg", record.weight),
+                note: normalizeNote(record.note)
+            )
+        }
+
+        return (careEntries + weightEntries).sorted { $0.recordedAt < $1.recordedAt }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("今月のサマリー") {
+                    LabeledContent("ごはん記録") { Text("\(mealCount)回") }
+                    LabeledContent("お薬記録") { Text("\(medicationCount)回") }
+                    LabeledContent("体重記録") { Text("\(monthWeights.count)回") }
+                    LabeledContent("体重平均") {
+                        if let averageWeight {
+                            Text(String(format: "%.2f kg", averageWeight))
+                        } else {
+                            Text("データなし").foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
+                Section {
+                    Button {
+                        exportMonthlyPDF()
+                    } label: {
+                        Label("月次レポートをPDF出力", systemImage: "square.and.arrow.up")
+                    }
+
+                    if let generatedPDFURL {
+                        Text(generatedPDFURL.lastPathComponent)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } footer: {
+                    Text("今月の記録を1枚のPDFにまとめて共有できます。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                if let generationError {
+                    Section("エラー") {
+                        Text(generationError)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
+                }
+            }
+            .navigationTitle("月次レポート")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("閉じる") { dismiss() }
+                }
+            }
+            .sheet(isPresented: $showingShareSheet) {
+                if let generatedPDFURL {
+                    ActivityView(activityItems: [generatedPDFURL])
+                }
+            }
+        }
+    }
+
+    private func exportMonthlyPDF() {
+        do {
+            let url = try generatePDF()
+            generatedPDFURL = url
+            showingShareSheet = true
+            generationError = nil
+        } catch {
+            generationError = "PDF出力に失敗しました: \(error.localizedDescription)"
+        }
+    }
+
+    private func generatePDF() throws -> URL {
+        let pageRect = CGRect(x: 0, y: 0, width: 595, height: 842) // A4
+        let renderer = UIGraphicsPDFRenderer(bounds: pageRect)
+
+        let data = renderer.pdfData { context in
+            context.beginPage()
+
+            let titleFont = UIFont.systemFont(ofSize: 24, weight: .bold)
+            let bodyFont = UIFont.systemFont(ofSize: 14)
+            let smallFont = UIFont.systemFont(ofSize: 12)
+
+            var y: CGFloat = 40
+            let left: CGFloat = 32
+            let lineHeight: CGFloat = 24
+
+            ("WanCare 月次レポート" as NSString).draw(at: CGPoint(x: left, y: y), withAttributes: [
+                .font: titleFont
+            ])
+            y += 40
+
+            let monthText = "対象月: \(Self.monthFormatter.string(from: .now))"
+            (monthText as NSString).draw(at: CGPoint(x: left, y: y), withAttributes: [
+                .font: bodyFont
+            ])
+            y += lineHeight * 1.5
+
+            let lines = [
+                "ごはん記録: \(mealCount)回",
+                "お薬記録: \(medicationCount)回",
+                "体重記録: \(monthWeights.count)回",
+                averageWeight.map { String(format: "体重平均: %.2f kg", $0) } ?? "体重平均: データなし"
+            ]
+
+            for line in lines {
+                (line as NSString).draw(at: CGPoint(x: left, y: y), withAttributes: [
+                    .font: bodyFont
+                ])
+                y += lineHeight
+            }
+
+            y += 20
+            ("※ このレポートはWanCareアプリで自動生成されました。" as NSString).draw(at: CGPoint(x: left, y: y), withAttributes: [
+                .font: smallFont,
+                .foregroundColor: UIColor.secondaryLabel
+            ])
+
+            y += 32
+            if y > pageRect.height - 80 {
+                context.beginPage()
+                y = 40
+            }
+
+            ("日別明細（時刻つき）" as NSString).draw(at: CGPoint(x: left, y: y), withAttributes: [
+                .font: UIFont.systemFont(ofSize: 18, weight: .semibold)
+            ])
+            y += 28
+
+            ("凡例: ごはん(橙) / お薬(青) / 体重(緑)" as NSString).draw(at: CGPoint(x: left, y: y), withAttributes: [
+                .font: smallFont,
+                .foregroundColor: UIColor.secondaryLabel
+            ])
+            y += 22
+
+            let grouped = Dictionary(grouping: detailEntries) {
+                Calendar.current.startOfDay(for: $0.recordedAt)
+            }
+            let sortedDays = grouped.keys.sorted()
+
+            for day in sortedDays {
+                if y > pageRect.height - 80 {
+                    context.beginPage()
+                    y = 40
+                }
+
+                let dayTitle = Self.dayFormatter.string(from: day)
+                (dayTitle as NSString).draw(at: CGPoint(x: left, y: y), withAttributes: [
+                    .font: UIFont.systemFont(ofSize: 14, weight: .bold)
+                ])
+                y += 22
+
+                let dayEntries = (grouped[day] ?? []).sorted { $0.recordedAt < $1.recordedAt }
+                for entry in dayEntries {
+                    if y > pageRect.height - 60 {
+                        context.beginPage()
+                        y = 40
+                    }
+                    let timeText = Self.timeFormatter.string(from: entry.recordedAt)
+                    let line = "・\(timeText)  \(entry.text)"
+                    (line as NSString).draw(at: CGPoint(x: left + 8, y: y), withAttributes: [
+                        .font: smallFont,
+                        .foregroundColor: entry.kind.color
+                    ])
+                    y += 18
+
+                    if !entry.note.isEmpty {
+                        let noteAttributes: [NSAttributedString.Key: Any] = [
+                            .font: UIFont.systemFont(ofSize: 11),
+                            .foregroundColor: UIColor.secondaryLabel
+                        ]
+                        let noteMaxWidth = pageRect.width - (left + 8) - 32
+                        let noteLineHeight: CGFloat = 16
+                        let noteText = "   メモ: \(entry.note)"
+                        let wrappedNoteLines = wrappedLines(noteText, maxWidth: noteMaxWidth, attributes: noteAttributes)
+
+                        for noteLine in wrappedNoteLines {
+                            if y > pageRect.height - 60 {
+                                context.beginPage()
+                                y = 40
+                            }
+                            (noteLine as NSString).draw(at: CGPoint(x: left + 8, y: y), withAttributes: noteAttributes)
+                            y += noteLineHeight
+                        }
+                    }
+                }
+
+                y += 10
+            }
+        }
+
+        let fileName = "WanCare_MonthlyReport_\(Self.fileFormatter.string(from: .now)).pdf"
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+        try data.write(to: url, options: .atomic)
+        return url
+    }
+
+    private static let monthFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "yyyy年M月"
+        return formatter
+    }()
+
+    private static let fileFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "yyyyMM"
+        return formatter
+    }()
+
+    private static let dayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "yyyy/M/d（E）"
+        return formatter
+    }()
+
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
+
+    private func normalizeNote(_ note: String) -> String {
+        note
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\n", with: " ")
+    }
+
+    private func wrappedLines(_ text: String, maxWidth: CGFloat, attributes: [NSAttributedString.Key: Any]) -> [String] {
+        guard !text.isEmpty else { return [] }
+
+        var lines: [String] = []
+        var current = ""
+
+        for scalar in text {
+            let next = current + String(scalar)
+            let nextWidth = (next as NSString).size(withAttributes: attributes).width
+
+            if nextWidth <= maxWidth || current.isEmpty {
+                current = next
+            } else {
+                lines.append(current)
+                current = String(scalar)
+            }
+        }
+
+        if !current.isEmpty {
+            lines.append(current)
+        }
+
+        return lines
+    }
+}
+
+private struct ActivityView: UIViewControllerRepresentable {
+    let activityItems: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 #Preview {
