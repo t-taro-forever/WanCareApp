@@ -10,6 +10,9 @@ import SwiftData
 
 @main
 struct WanCareApp: App {
+    @AppStorage("hasLaunchedBefore") private var hasLaunchedBefore = false
+    @State private var showingOnboarding = false
+
     let container: ModelContainer = {
         let schema = Schema([CareRecord.self, MealSchedule.self, MedicationSchedule.self, SpecialEvent.self, DogProfile.self, WeightRecord.self])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
@@ -23,6 +26,17 @@ struct WanCareApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .onAppear {
+                    if !hasLaunchedBefore {
+                        showingOnboarding = true
+                        hasLaunchedBefore = true
+                    }
+                }
+                .sheet(isPresented: $showingOnboarding) {
+                    OnboardingView(isHelp: false) {
+                        showingOnboarding = false
+                    }
+                }
         }
         .modelContainer(container)
     }

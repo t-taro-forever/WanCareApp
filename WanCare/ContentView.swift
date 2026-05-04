@@ -42,6 +42,7 @@ struct TodayView: View {
     @State private var editingRecord: CareRecord?
     @State private var showingProfile = false
     @State private var showingWeightForm = false
+    @State private var showingHelp = false
 
     private var profile: DogProfile? { profiles.first }
 
@@ -258,6 +259,18 @@ struct TodayView: View {
                     } label: {
                         Image(systemName: "person.circle")
                     }
+                }
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showingHelp = true
+                    } label: {
+                        Image(systemName: "questionmark.circle")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingHelp) {
+                OnboardingView(isHelp: true) {
+                    showingHelp = false
                 }
             }
             .sheet(isPresented: $showingProfile) {
