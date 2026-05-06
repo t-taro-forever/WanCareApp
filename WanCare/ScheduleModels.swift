@@ -81,10 +81,12 @@ class SpecialEvent {
 class DogProfile {
     var name: String
     @Attribute(.externalStorage) var photoData: Data?
+    var birthDate: Date?
 
-    init(name: String = "", photoData: Data? = nil) {
+    init(name: String = "", photoData: Data? = nil, birthDate: Date? = nil) {
         self.name = name
         self.photoData = photoData
+        self.birthDate = birthDate
     }
 }
 
