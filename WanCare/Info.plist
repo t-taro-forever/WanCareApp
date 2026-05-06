@@ -5,6 +5,8 @@
 	<key>CFBundleGetInfoString</key>
 	<string></string>
 	<key>GADApplicationIdentifier</key>
-	<string>ca-app-pub-5588394898498696~7084127171</string>
+	<string>$(ADMOB_APP_ID)</string>
+	<key>GADBannerAdUnitID</key>
+	<string>$(ADMOB_BANNER_AD_UNIT_ID)</string>
 </dict>
 </plist>

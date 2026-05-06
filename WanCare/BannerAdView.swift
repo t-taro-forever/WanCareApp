@@ -8,8 +8,8 @@
 //  1. XcodeのFile > Add Package Dependencies から下記URLを追加してください：
 //     https://github.com/googleads/swift-package-manager-google-mobile-ads
 //  2. Info.plist に以下を追加してください：
-//     Key: GADApplicationIdentifier
-//     Value: ca-app-pub-3940256099942544~1458002511  ← テスト用AppID（本番は実際のIDに変更）
+//     GADApplicationIdentifier
+//     GADBannerAdUnitID
 //  3. SKAdNetworkIdentifier の追加（AdMob公式ドキュメント参照）
 //
 //  【広告ユニットID】
@@ -68,25 +68,24 @@ struct BannerAdViewRepresentable: UIViewRepresentable {
     }
 }
 
-// MARK: - 広告ユニットID 定数
+// MARK: - 広告ユニットID
 
 enum AdUnitID {
-    /// テスト用バナーID（開発中はこちらを使用）
+    private static let plistKey = "GADBannerAdUnitID"
     static let testBanner = "ca-app-pub-3940256099942544/2934735716"
 
-    /// 本番用バナーID（リリース時はAdMobコンソールのIDに差し替え）
-    static let productionBanner = "YOUR_PRODUCTION_BANNER_AD_UNIT_ID"
-
-    /// 現在使用するID（デバッグ/シミュレータ: testBanner、本番実機: productionBanner）
+    /// Build Settings -> Info.plist へ注入された値を優先利用する。
     static var banner: String {
+        if let configured = Bundle.main.object(forInfoDictionaryKey: plistKey) as? String,
+           !configured.isEmpty,
+           !configured.contains("xxxxxxxx") {
+            return configured
+        }
         #if DEBUG
         return testBanner
         #else
-        #if targetEnvironment(simulator)
-        return testBanner
-        #else
-        return productionBanner
-        #endif
+        assertionFailure("GADBannerAdUnitID is missing. Set ADMOB_BANNER_AD_UNIT_ID in Release config.")
+        return ""
         #endif
     }
 }

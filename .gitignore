@@ -1,0 +1,9 @@
+# Local secrets (do not commit production AdMob IDs)
+WanCare/Config/AdMob.Secrets.local.xcconfig
+
+# Xcode user data
+*.xcuserstate
+xcuserdata/
+
+# macOS
+.DS_Store
