@@ -53,6 +53,11 @@ struct TodayView: View {
 
     private var profile: DogProfile? { profiles.first }
 
+    private var profileAgeText: String? {
+        guard let birthDate = profile?.birthDate else { return nil }
+        return ageText(from: birthDate)
+    }
+
     private var todayDailyNote: DailyNote? {
         allDailyNotes.first { Calendar.current.isDateInToday($0.date) }
     }
@@ -116,9 +121,16 @@ struct TodayView: View {
                         }
                         VStack(alignment: .leading, spacing: 4) {
                             if let name = profile?.name, !name.isEmpty {
-                                Text(name)
-                                    .font(.title2)
-                                    .fontWeight(.bold)
+                                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                    Text(name)
+                                        .font(.title2)
+                                        .fontWeight(.bold)
+                                    if let profileAgeText {
+                                        Text(profileAgeText)
+                                            .font(.subheadline)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
                             } else {
                                 Text("名前未設定")
                                     .font(.title2)
@@ -441,6 +453,18 @@ struct TodayView: View {
             let newNote = DailyNote(date: .now, note: text)
             context.insert(newNote)
         }
+    }
+
+    private func ageText(from birthDate: Date, now: Date = .now) -> String? {
+        let calendar = Calendar.current
+        let normalizedBirth = calendar.startOfDay(for: birthDate)
+        let normalizedNow = calendar.startOfDay(for: now)
+        guard normalizedBirth <= normalizedNow else { return nil }
+
+        let components = calendar.dateComponents([.year, .month], from: normalizedBirth, to: normalizedNow)
+        let years = max(components.year ?? 0, 0)
+        let months = max(components.month ?? 0, 0)
+        return "\(years)歳\(months)カ月"
     }
 }
 
@@ -1026,6 +1050,7 @@ struct DogProfileFormView: View {
     @State private var name = ""
     @State private var photoData: Data? = nil
     @State private var selectedPhoto: PhotosPickerItem? = nil
+    @State private var birthDate: Date = .now
 
     private var profile: DogProfile? { profiles.first }
 
@@ -1065,6 +1090,11 @@ struct DogProfileFormView: View {
                 Section("名前") {
                     TextField("わんちゃんの名前", text: $name)
                 }
+
+                Section("生年月日") {
+                    DatePicker("生年月日", selection: $birthDate, in: ...Date(), displayedComponents: .date)
+                        .environment(\.locale, Locale(identifier: "ja_JP"))
+                }
             }
             .navigationTitle("プロフィール設定")
             .navigationBarTitleDisplayMode(.inline)
@@ -1076,9 +1106,10 @@ struct DogProfileFormView: View {
                     Button("保存") {
                         if let p = profile {
                             p.name = name
+                            p.birthDate = birthDate
                             if let data = photoData { p.photoData = data }
                         } else {
-                            let p = DogProfile(name: name, photoData: photoData)
+                            let p = DogProfile(name: name, photoData: photoData, birthDate: birthDate)
                             context.insert(p)
                         }
                         dismiss()
@@ -1096,6 +1127,7 @@ struct DogProfileFormView: View {
                 if let p = profile {
                     name = p.name
                     photoData = p.photoData
+                    birthDate = p.birthDate ?? .now
                 }
             }
         }
